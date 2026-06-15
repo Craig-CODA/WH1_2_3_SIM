@@ -4002,8 +4002,10 @@ const PROD_DEPTH=66.5*FT;
 const PROD_STAGE_W=9*FT, PROD_STAGE_D=9*FT;
 const PROD_ROLLER_BED_COUNT=9, PROD_STAGE_NORTH_SHIFT=3*FT, PROD_ROLLER_SPACING=0.55*FT;
 const PROD_SUD_ROLLER_LINE_INDEX=9, PROD_SUD_ROLLER_BED_W=60*IN, PROD_SUD_CHAIN_LENGTH=40*FT;
+const PROD_SUD_TURN_LINE_INDEX=10, PROD_SUD_TURN_ROLLER_BED_D=54*IN, PROD_SUD_TURN_WEST_EXT=4*FT, PROD_SUD_TURN_CHAIN_LENGTH=80*FT;
 const PROD_SUD_FRAME_T=6*IN;
 const PROD_SUD_TURNTABLE_SIZE=6*FT, PROD_SUD_TURNTABLE_R=4.5*FT;
+const PROD_SUD_TURN_TABLE_SIZE=5*FT, PROD_SUD_TURN_TABLE_R=3.75*FT;
 const PROD_SUD_STRAPPER_W=7*FT, PROD_SUD_STRAPPER_D=6.5*FT, PROD_SUD_STRAPPER_H=9*FT, PROD_SUD_STRAPPER_T=6*IN;
 const PROD_SUD_STRAP_ROLL_R=1.5*FT, PROD_SUD_STRAP_ROLL_OFFSET_E=4*FT;
 const PROD_SUD_SIDE_FEED_LENGTH=20*FT, PROD_SUD_SIDE_FEED_W=4*FT;
@@ -4037,6 +4039,7 @@ const PROD_EXTRA_PALLETIZERS=[PROD_LINE1_WEST_PALLETIZER];
 const LW=4*IN;
 const COL_STEP=56*FT;
 const COL_NS_STEP=580*IN;
+const PROD_SUD_TURN_Z0=BIN_N+576*IN+7*COL_NS_STEP+8*FT;
 // Office 21'8" × 54'4" — south wall 6ft south of the first column row (48'4").
 // 5ft west hallway running full depth into a 5ft south corridor (restrooms→south doors,
 // spanning to the east wall). Rooms 16'8" wide. Window→door gap 1ft.
@@ -4550,6 +4553,8 @@ vL(PROD_GRP2_XL,PROD_Z1,PROD_Z2);      vL(PROD_GRP2_XR,PROD_Z1,PROD_Z2);
 C.fillStyle='#ffcc00';
 PROD_LINE_X.forEach((lx,i)=>{
   if(i===PROD_SUD_ROLLER_LINE_INDEX) return;
+  if(i===PROD_SUD_TURN_LINE_INDEX) return;
+  if(i===11) return;
   fillR(lx-PROD_STAGE_W/2,prodStageZ(i),lx+PROD_STAGE_W/2,prodStageEnd(i));
 });
 C.fillStyle='#c62828';
@@ -4585,6 +4590,163 @@ PROD_LINE_X.slice(0,PROD_ROLLER_BED_COUNT).forEach((lx,i)=>{
   const x1=x0+PROD_SUD_ROLLER_BED_W;
   for(let z=prodStageZ(PROD_SUD_ROLLER_LINE_INDEX)+PROD_ROLLER_SPACING;z<prodStageEnd(PROD_SUD_ROLLER_LINE_INDEX);z+=PROD_ROLLER_SPACING)
     hL(z,x0,x1,Math.max(1,px(0.18*FT)));
+}
+// Line 11 SUD turn roller bed: inside the yellow square, across the north side, 54in deep south.
+{
+  const lx=PROD_LINE_X[PROD_SUD_TURN_LINE_INDEX];
+  const x0=lx-PROD_STAGE_W/2-PROD_SUD_TURN_WEST_EXT, x1=lx+PROD_STAGE_W/2;
+  const z0=PROD_SUD_TURN_Z0, z1=z0+PROD_SUD_TURN_ROLLER_BED_D;
+  const northRailX0=(x0+x1)/2;
+  const northRailX1=COL_X0+(Math.ceil((northRailX0-COL_X0)/COL_STEP)+1)*COL_STEP;
+  const northRailZ=z0-6*IN;
+  C.fillStyle='#08306b';
+  fillR(x0-PROD_SUD_FRAME_T,z0,x0,z1);
+  fillR(x1,z0,x1+PROD_SUD_FRAME_T,z1);
+  fillR(x0-PROD_SUD_FRAME_T,z0-PROD_SUD_FRAME_T,x1+PROD_SUD_FRAME_T,z0);
+  fillR(x0-PROD_SUD_FRAME_T,z1,x1+PROD_SUD_FRAME_T,z1+PROD_SUD_FRAME_T);
+  C.fillStyle='#3f464a';
+  fillR(x0,z0,x1,z1);
+  C.fillStyle='#b9c0c4';
+  for(let x=x0+PROD_ROLLER_SPACING;x<x1;x+=PROD_ROLLER_SPACING){
+    vL(x,z0+0.35*FT,z1-0.35*FT,Math.max(1,px(0.18*FT)));
+  }
+  C.fillStyle='#ffcc00';
+  hL(northRailZ,northRailX0,northRailX1,Math.max(LWP,px(3*IN)));
+}
+// Line 12 northwest turntable and east transfer roller bed.
+{
+  const lx=PROD_LINE_X[11];
+  const sqX0=lx-PROD_STAGE_W/2;
+  const westTurnSize=60*IN;
+  const line11GuardZ=PROD_SUD_TURN_Z0-6*IN;
+  const z0=line11GuardZ+6*IN;
+  const westTurnX0=sqX0, westTurnX1=sqX0+westTurnSize;
+  const westTurnZ0=z0, westTurnZ1=z0+westTurnSize;
+  const westTurnCx=(westTurnX0+westTurnX1)/2, westTurnCz=(westTurnZ0+westTurnZ1)/2;
+  const line11Lx=PROD_LINE_X[PROD_SUD_TURN_LINE_INDEX];
+  const line11X0=line11Lx-PROD_STAGE_W/2-PROD_SUD_TURN_WEST_EXT, line11X1=line11Lx+PROD_STAGE_W/2;
+  const northRailX0=(line11X0+line11X1)/2;
+  const northRailX1=COL_X0+(Math.ceil((northRailX0-COL_X0)/COL_STEP)+1)*COL_STEP;
+  const transferX0=westTurnX1, transferX1=northRailX1+10*FT;
+  C.fillStyle='#08306b';
+  C.beginPath();
+  C.arc(px(westTurnCx),px(westTurnCz),px(PROD_SUD_TURN_TABLE_R),0,Math.PI*2);
+  C.fill();
+  C.fillStyle='#3f464a';
+  fillR(westTurnX0,westTurnZ0,westTurnX1,westTurnZ1);
+  fillR(transferX0,westTurnZ0,transferX1,westTurnZ1);
+  C.fillStyle='#b9c0c4';
+  for(let z=westTurnZ0+0.55*FT;z<westTurnZ1;z+=0.55*FT){
+    hL(z,westTurnX0+0.35*FT,westTurnX1-0.35*FT,Math.max(1,px(0.18*FT)));
+  }
+  for(let x=transferX0+PROD_ROLLER_SPACING;x<transferX1;x+=PROD_ROLLER_SPACING){
+    vL(x,westTurnZ0+0.35*FT,westTurnZ1-0.35*FT,Math.max(1,px(0.18*FT)));
+  }
+  const chainFrom=westTurnCz+PROD_SUD_TURN_TABLE_R;
+  const chainTo=chainFrom+PROD_SUD_TURN_CHAIN_LENGTH;
+  const railT=Math.max(LWP,px(3*IN));
+  const railX0=westTurnX0, railX1=westTurnX1;
+  C.fillStyle='#f47a20';
+  vL(railX0,chainFrom,chainTo,railT);
+  vL(railX1,chainFrom,chainTo,railT);
+  C.fillStyle='#c9b18a';
+  for(let z=chainFrom;z<=chainTo+0.01*FT;z+=8*FT){
+    hL(Math.min(z,chainTo),railX0,railX1,railT);
+  }
+  C.fillStyle='#222222';
+  for(const x of [westTurnCx-westTurnSize*0.25,westTurnCx+westTurnSize*0.25]){
+    fillR(x-2*IN,chainFrom,x+2*IN,chainTo);
+  }
+  C.fillStyle='#b9c0c4';
+  for(let z=chainFrom+2*FT;z<chainTo;z+=2*FT){
+    hL(z,railX0+0.5*FT,railX1-0.5*FT,Math.max(1,px(0.12*FT)));
+  }
+  const guardZ0=westTurnZ1+8*FT, guardZ1=guardZ0+6*FT;
+  const guardEast=railX1+8*FT;
+  const guardColumnX=COL_X0+Math.round(((railX1+guardEast)/2-COL_X0)/COL_STEP)*COL_STEP;
+  const guardColumnZ=BIN_N+576*IN+8*COL_NS_STEP;
+  const rollX=guardEast-2.5*FT, rollZ=(guardZ0+guardZ1)/2;
+  C.fillStyle='#ffcc00';
+  hL(guardZ0,railX1,guardEast,railT);
+  vL(guardEast,guardZ0,guardZ1,railT);
+  hL(guardZ1,railX1,guardEast,railT);
+  vL(guardColumnX,guardZ1,guardColumnZ,railT);
+  C.fillStyle='#111111';
+  C.beginPath();
+  C.arc(px(rollX),px(rollZ),Math.max(2,px(1.25*FT)),0,Math.PI*2);
+  C.fill();
+  C.fillStyle='#228b22';
+  C.beginPath();
+  C.arc(px(rollX),px(rollZ),Math.max(1,px(0.55*FT)),0,Math.PI*2);
+  C.fill();
+  C.fillStyle='#6d7277';
+  const archZ=(guardZ0+guardZ1)/2, archT=Math.max(LWP,px(4*IN));
+  vL(railX0-0.75*FT,archZ-2.5*FT,archZ+2.5*FT,archT);
+  vL(railX1+0.75*FT,archZ-2.5*FT,archZ+2.5*FT,archT);
+  hL(archZ-2.5*FT,railX0-0.75*FT,railX1+0.75*FT,archT);
+  hL(archZ+2.5*FT,railX0-0.75*FT,railX1+0.75*FT,archT);
+}
+// Line 11 east turntable and southbound chain conveyor.
+{
+  const lx=PROD_LINE_X[PROD_SUD_TURN_LINE_INDEX];
+  const bedX1=lx+PROD_STAGE_W/2;
+  const bedZ0=PROD_SUD_TURN_Z0;
+  const bedZ1=bedZ0+PROD_SUD_TURN_ROLLER_BED_D;
+  const cx=bedX1+PROD_SUD_TURN_TABLE_SIZE/2;
+  const cz=(bedZ0+bedZ1)/2;
+  const chainFrom=cz+PROD_SUD_TURN_TABLE_R;
+  const chainTo=chainFrom+PROD_SUD_TURN_CHAIN_LENGTH;
+  C.fillStyle='#08306b';
+  C.beginPath();
+  C.arc(px(cx),px(cz),px(PROD_SUD_TURN_TABLE_R),0,Math.PI*2);
+  C.fill();
+  C.fillStyle='#3f464a';
+  fillR(cx-PROD_SUD_TURN_TABLE_SIZE/2,cz-PROD_SUD_TURN_TABLE_SIZE/2,cx+PROD_SUD_TURN_TABLE_SIZE/2,cz+PROD_SUD_TURN_TABLE_SIZE/2);
+  C.fillStyle='#b9c0c4';
+  for(let z=cz-PROD_SUD_TURN_TABLE_SIZE/2+0.55*FT;z<cz+PROD_SUD_TURN_TABLE_SIZE/2;z+=0.55*FT){
+    hL(z,cx-PROD_SUD_TURN_TABLE_SIZE/2+0.35*FT,cx+PROD_SUD_TURN_TABLE_SIZE/2-0.35*FT,Math.max(1,px(0.18*FT)));
+  }
+  const railT=Math.max(LWP,px(3*IN));
+  const railX0=cx-PROD_SUD_TURN_TABLE_SIZE/2, railX1=cx+PROD_SUD_TURN_TABLE_SIZE/2;
+  C.fillStyle='#f47a20';
+  vL(railX0,chainFrom,chainTo,railT);
+  vL(railX1,chainFrom,chainTo,railT);
+  C.fillStyle='#c9b18a';
+  for(let z=chainFrom;z<=chainTo+0.01*FT;z+=8*FT){
+    hL(Math.min(z,chainTo),railX0,railX1,railT);
+  }
+  C.fillStyle='#222222';
+  for(const x of [cx-PROD_SUD_TURN_TABLE_SIZE*0.25,cx+PROD_SUD_TURN_TABLE_SIZE*0.25]){
+    fillR(x-2*IN,chainFrom,x+2*IN,chainTo);
+  }
+  C.fillStyle='#b9c0c4';
+  for(let z=chainFrom+2*FT;z<chainTo;z+=2*FT){
+    hL(z,cx-PROD_SUD_TURN_TABLE_SIZE/2+0.5*FT,cx+PROD_SUD_TURN_TABLE_SIZE/2-0.5*FT,Math.max(1,px(0.12*FT)));
+  }
+  const guardZ0=bedZ1+8*FT, guardZ1=guardZ0+6*FT;
+  const guardWest=railX0-8*FT;
+  const guardColumnX=COL_X0+Math.round(((guardWest+railX0)/2-COL_X0)/COL_STEP)*COL_STEP;
+  const guardColumnZ=BIN_N+576*IN+8*COL_NS_STEP;
+  const rollX=guardWest+2.5*FT, rollZ=(guardZ0+guardZ1)/2;
+  C.fillStyle='#ffcc00';
+  hL(guardZ0,guardWest,railX0,Math.max(LWP,px(3*IN)));
+  vL(guardWest,guardZ0,guardZ1,Math.max(LWP,px(3*IN)));
+  hL(guardZ1,guardWest,railX0,Math.max(LWP,px(3*IN)));
+  vL(guardColumnX,guardZ1,guardColumnZ,Math.max(LWP,px(3*IN)));
+  C.fillStyle='#111111';
+  C.beginPath();
+  C.arc(px(rollX),px(rollZ),Math.max(2,px(1.25*FT)),0,Math.PI*2);
+  C.fill();
+  C.fillStyle='#228b22';
+  C.beginPath();
+  C.arc(px(rollX),px(rollZ),Math.max(1,px(0.55*FT)),0,Math.PI*2);
+  C.fill();
+  C.fillStyle='#6d7277';
+  const archZ=(guardZ0+guardZ1)/2, archT=Math.max(LWP,px(4*IN));
+  vL(railX0-0.75*FT,archZ-2.5*FT,archZ+2.5*FT,archT);
+  vL(railX1+0.75*FT,archZ-2.5*FT,archZ+2.5*FT,archT);
+  hL(archZ-2.5*FT,railX0-0.75*FT,railX1+0.75*FT,archT);
+  hL(archZ+2.5*FT,railX0-0.75*FT,railX1+0.75*FT,archT);
 }
 // Two SUD pallet chain runs feeding line 10 from the south.
 {
@@ -4792,6 +4954,7 @@ fillR(PROD_LINE1_WEST_GUARDRAIL.x-1.5*IN,PROD_LINE1_WEST_GUARDRAIL.z1-1.5*IN,PRO
 // Staging square white borders
 C.fillStyle='#ffffff';
 PROD_LINE_X.forEach((lx,i)=>{
+  if(i===PROD_SUD_TURN_LINE_INDEX) return;
   const zs=prodStageZ(i), ze=prodStageEnd(i);
   const x0=lx-PROD_STAGE_W/2;
   const x1=i===PROD_SUD_ROLLER_LINE_INDEX?x0+PROD_SUD_ROLLER_BED_W:lx+PROD_STAGE_W/2;
@@ -5350,6 +5513,95 @@ function addLaneLabel(text,x,z,faceEast){
   mesh.rotation.x=-Math.PI/2;
   mesh.rotation.z=faceEast?-Math.PI/2:Math.PI/2;
   scene.add(mesh);
+}
+function addMaterialSquareFloorPaint(text,x0,z0,w,d){
+  const cw=2048,ch=2048;
+  const cv=document.createElement('canvas');
+  cv.width=cw; cv.height=ch;
+  const c=cv.getContext('2d');
+  c.clearRect(0,0,cw,ch);
+  const lines=String(text).split('\n');
+  const fontPx=Math.round(ch*(lines.length>1?0.145:0.19));
+  const lineGap=fontPx*0.98;
+  c.font=`900 ${fontPx}px Arial,sans-serif`;
+  c.textAlign='center';
+  c.textBaseline='middle';
+  c.fillStyle='#ffffff';
+  c.save();
+  c.translate(cw/2,ch/2);
+  c.rotate(Math.PI/2);
+  const y0=ch/2-(lines.length-1)*lineGap/2+2;
+  lines.forEach((line,i)=>{
+    c.fillText(line,0,y0+i*lineGap-ch/2);
+  });
+  c.restore();
+  const tex=new THREE.CanvasTexture(cv);
+  tex.colorSpace=THREE.SRGBColorSpace;
+  tex.generateMipmaps=false;
+  tex.minFilter=THREE.LinearFilter;
+  tex.magFilter=THREE.LinearFilter;
+  const mesh=new THREE.Mesh(
+    new THREE.PlaneGeometry(w,d),
+    new THREE.MeshBasicMaterial({
+      map:tex,
+      transparent:true,
+      alphaTest:0.02,
+      depthWrite:false,
+      side:THREE.DoubleSide,
+      polygonOffset:true,
+      polygonOffsetFactor:-2,
+      polygonOffsetUnits:-2
+    })
+  );
+  mesh.position.set(x0+w/2,0.022,z0+d/2);
+  mesh.rotation.x=-Math.PI/2;
+  mesh.renderOrder=24;
+  scene.add(mesh);
+}
+function addMaterialSquareOutline(x0,z0,w,d){
+  const mat=new THREE.MeshBasicMaterial({
+    color:0xffcc00,
+    depthWrite:false,
+    side:THREE.DoubleSide,
+    polygonOffset:true,
+    polygonOffsetFactor:-4,
+    polygonOffsetUnits:-4
+  });
+  const y=0.028, t=4*IN;
+  const addStrip=(cx,cz,sx,sz)=>{
+    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(sx,sz),mat);
+    mesh.position.set(cx,y,cz);
+    mesh.rotation.x=-Math.PI/2;
+    mesh.renderOrder=26;
+    scene.add(mesh);
+  };
+  addStrip(x0+w/2,z0,w,t);
+  addStrip(x0+w/2,z0+d,w,t);
+  addStrip(x0,z0+d/2,t,d);
+  addStrip(x0+w,z0+d/2,t,d);
+}
+// Painted floor markings for the six SUD material squares.
+{
+  const lx=PROD_LINE_X[PROD_SUD_ROLLER_LINE_INDEX];
+  const ze=prodStageEnd(PROD_SUD_ROLLER_LINE_INDEX);
+  const stationCx=lx-PROD_STAGE_W/2+PROD_SUD_ROLLER_BED_W/2;
+  const strapperCz=ze+PROD_SUD_CHAIN_LENGTH+PROD_SUD_TURNTABLE_SIZE/2;
+  const stationCz=strapperCz+PROD_SUD_STRAPPER_D/2+PROD_SUD_TURNTABLE_SIZE/2;
+  const z0=stationCz+PROD_SUD_TURNTABLE_R;
+  const z1=z0+PROD_SUD_TUNNEL_L;
+  const boxX0=stationCx+PROD_SUD_TUNNEL_W/2, boxX1=boxX0+PROD_SUD_BOX_W;
+  const boxZ0=z1, boxZ1=boxZ0+PROD_SUD_BOX_L;
+  const cgFirst=BIN_N+576*IN;
+  const colX=COL_X0+Math.ceil((boxX1-COL_X0)/COL_STEP)*COL_STEP;
+  const colZ=cgFirst+Math.ceil((boxZ1-cgFirst)/COL_NS_STEP)*COL_NS_STEP;
+  const x0=colX+6*IN, zStart=colZ+6*IN+2*FT, w=54*IN, d=44*IN;
+  const pairGap=6*IN, groupGap=1*FT;
+  const labels=['PALLETS','PALLETS','TIER\nSHEETS','TIER\nSHEETS','TOP\nFRAMES','TOP\nFRAMES'];
+  for(let i=0;i<6;i++){
+    const z=zStart+Math.floor(i/2)*(2*d+pairGap+groupGap)+(i%2)*(d+pairGap);
+    addMaterialSquareOutline(x0,z,w,d);
+    addMaterialSquareFloorPaint(labels[i],x0,z,w,d);
+  }
 }
 // D/E south back-to-back FIFO rack: 68ft total, 33ft per side, east edge fixed.
 {
@@ -7010,6 +7262,9 @@ const Grack2A=new THREE.Group(); scene.add(Grack2A);
   const stageMat=new THREE.MeshStandardMaterial({color:0xffcc00,roughness:0.4,metalness:0.3});
   const sudStageMat=new THREE.MeshStandardMaterial({color:0xc62828,roughness:0.42,metalness:0.22});
   const sudFrameMat=new THREE.MeshStandardMaterial({color:0x145a1f,roughness:0.38,metalness:0.55});
+  const sudTurnFrameMat=new THREE.MeshStandardMaterial({color:0x08306b,roughness:0.38,metalness:0.55});
+  const sudTurnChainFrameMat=new THREE.MeshStandardMaterial({color:0xf47a20,roughness:0.4,metalness:0.45});
+  const sudTurnChainCrossMat=new THREE.MeshStandardMaterial({color:0xc9b18a,roughness:0.5,metalness:0.25});
   const wrapMat =new THREE.MeshStandardMaterial({color:0xc9b18a,roughness:0.5,metalness:0.2});
   const rollerMat=new THREE.MeshStandardMaterial({color:0xb9c0c4,roughness:0.2,metalness:0.8});
   const chainMat=new THREE.MeshStandardMaterial({color:0x222222,roughness:0.5,metalness:0.7});
@@ -7022,6 +7277,8 @@ const Grack2A=new THREE.Group(); scene.add(Grack2A);
   rollerGeo.rotateZ(Math.PI/2);
   const sudRollerGeo=new THREE.CylinderGeometry(0.12*FT,0.12*FT,PROD_SUD_ROLLER_BED_W,12);
   sudRollerGeo.rotateZ(Math.PI/2);
+  const sudTurnRollerGeo=new THREE.CylinderGeometry(0.12*FT,0.12*FT,PROD_SUD_TURN_ROLLER_BED_D-0.7*FT,12);
+  sudTurnRollerGeo.rotateX(Math.PI/2);
   const wrapGeo =new THREE.CylinderGeometry(PROD_WRAP_R,PROD_WRAP_R,0.2,24);
   const wrapHookArmGeo=new THREE.BoxGeometry(PROD_WRAP_R,0.5*FT,0.5*FT);
   const wrapHookDropGeo=new THREE.BoxGeometry(0.5*FT,10*FT,0.5*FT);
@@ -7056,15 +7313,18 @@ const Grack2A=new THREE.Group(); scene.add(Grack2A);
   };
   const lineRollerPos=[]; // collected, then drawn as one InstancedMesh — was ~600 separate meshes
   const sudRollerPos=[];
+  const sudTurnRollerPos=[];
   PROD_LINE_X.forEach((lx,i)=>{
     const zs=prodStageZ(i), ze=prodStageEnd(i), d=ze-zs;
     const isSud=i===PROD_SUD_ROLLER_LINE_INDEX;
     const stageW=isSud?PROD_SUD_ROLLER_BED_W:PROD_STAGE_W;
     const stageCx=isSud?lx-PROD_STAGE_W/2+PROD_SUD_ROLLER_BED_W/2:lx;
-    const s=new THREE.Mesh(new THREE.BoxGeometry(stageW,0.15,d),isSud?sudStageMat:stageMat);
-    s.position.set(stageCx,rollerBedY+0.08,zs+d/2);
-    s.castShadow=true; s.receiveShadow=true;
-    Gprod.add(s);
+    if(i!==PROD_SUD_TURN_LINE_INDEX&&i!==11){
+      const s=new THREE.Mesh(new THREE.BoxGeometry(stageW,0.15,d),isSud?sudStageMat:stageMat);
+      s.position.set(stageCx,rollerBedY+0.08,zs+d/2);
+      s.castShadow=true; s.receiveShadow=true;
+      Gprod.add(s);
+    }
     if(i<PROD_ROLLER_BED_COUNT){
       for(let z=zs+PROD_ROLLER_SPACING;z<ze;z+=PROD_ROLLER_SPACING){
         lineRollerPos.push([lx,rollerBedY+0.24,z]);
@@ -7237,6 +7497,231 @@ const Grack2A=new THREE.Group(); scene.add(Grack2A);
         addSudPallet(dispCx,dispCz,dispBaseH+p*(PROD_SUD_PALLET_H+0.25*IN));
       }
     }
+    if(i===PROD_SUD_TURN_LINE_INDEX){
+      const z0=PROD_SUD_TURN_Z0, z1=z0+PROD_SUD_TURN_ROLLER_BED_D;
+      const x0=lx-PROD_STAGE_W/2-PROD_SUD_TURN_WEST_EXT, x1=lx+PROD_STAGE_W/2;
+      const bedW=x1-x0;
+      const deck=new THREE.Mesh(new THREE.BoxGeometry(bedW,0.16*FT,PROD_SUD_TURN_ROLLER_BED_D),tableMat);
+      deck.position.set((x0+x1)/2,rollerBedY+0.16*FT,(z0+z1)/2);
+      deck.castShadow=true; deck.receiveShadow=true;
+      Gprod.add(deck);
+      const frameH=1*FT;
+      const addTurnFrame=(cx,cz,w,d)=>{
+        const frame=new THREE.Mesh(new THREE.BoxGeometry(w,frameH,d),sudTurnFrameMat);
+        frame.position.set(cx,frameH/2,cz);
+        frame.castShadow=true; frame.receiveShadow=true;
+        Gprod.add(frame);
+      };
+      addTurnFrame(x0-PROD_SUD_FRAME_T/2,(z0+z1)/2,PROD_SUD_FRAME_T,PROD_SUD_TURN_ROLLER_BED_D);
+      addTurnFrame(x1+PROD_SUD_FRAME_T/2,(z0+z1)/2,PROD_SUD_FRAME_T,PROD_SUD_TURN_ROLLER_BED_D);
+      addTurnFrame((x0+x1)/2,z0-PROD_SUD_FRAME_T/2,bedW+2*PROD_SUD_FRAME_T,PROD_SUD_FRAME_T);
+      addTurnFrame((x0+x1)/2,z1+PROD_SUD_FRAME_T/2,bedW+2*PROD_SUD_FRAME_T,PROD_SUD_FRAME_T);
+      for(let x=x0+PROD_ROLLER_SPACING;x<x1;x+=PROD_ROLLER_SPACING){
+        sudTurnRollerPos.push([x,rollerBedY+0.34*FT,(z0+z1)/2]);
+      }
+      const turnCx=x1+PROD_SUD_TURN_TABLE_SIZE/2;
+      const turnCz=(z0+z1)/2;
+      const base=new THREE.Mesh(new THREE.CylinderGeometry(PROD_SUD_TURN_TABLE_R,PROD_SUD_TURN_TABLE_R,0.18*FT,48),sudTurnFrameMat);
+      base.position.set(turnCx,0.09*FT,turnCz);
+      base.castShadow=true; base.receiveShadow=true;
+      Gprod.add(base);
+      const table=new THREE.Mesh(new THREE.BoxGeometry(PROD_SUD_TURN_TABLE_SIZE,0.22*FT,PROD_SUD_TURN_TABLE_SIZE),tableMat);
+      table.position.set(turnCx,rollerBedY+0.05*FT,turnCz);
+      table.castShadow=true; table.receiveShadow=true;
+      Gprod.add(table);
+      const turnRollerGeo=new THREE.CylinderGeometry(0.12*FT,0.12*FT,PROD_SUD_TURN_TABLE_SIZE-0.7*FT,12);
+      turnRollerGeo.rotateZ(Math.PI/2);
+      const turnRollerPos=[];
+      for(let rz=turnCz-PROD_SUD_TURN_TABLE_SIZE/2+0.55*FT;rz<turnCz+PROD_SUD_TURN_TABLE_SIZE/2;rz+=0.55*FT){
+        turnRollerPos.push([turnCx,rollerBedY+0.28*FT,rz]);
+      }
+      const turnInst=new THREE.InstancedMesh(turnRollerGeo,rollerMat,turnRollerPos.length);
+      const turnM4=new THREE.Matrix4();
+      turnRollerPos.forEach(([rx,ry,rz],idx)=>turnInst.setMatrixAt(idx,turnM4.makeTranslation(rx,ry,rz)));
+      turnInst.instanceMatrix.needsUpdate=true;
+      turnInst.castShadow=true; turnInst.receiveShadow=true;
+      Gprod.add(turnInst);
+      const chainFrom=turnCz+PROD_SUD_TURN_TABLE_R;
+      const chainTo=chainFrom+PROD_SUD_TURN_CHAIN_LENGTH;
+      const addChainFramePart=(cx,cz,w,d,mat)=>{
+        const part=new THREE.Mesh(new THREE.BoxGeometry(w,1*FT,d),mat);
+        part.position.set(cx,0.5*FT,cz);
+        part.castShadow=true; part.receiveShadow=true;
+        Gprod.add(part);
+      };
+      const railX0=turnCx-PROD_SUD_TURN_TABLE_SIZE/2;
+      const railX1=turnCx+PROD_SUD_TURN_TABLE_SIZE/2;
+      addChainFramePart(railX0,(chainFrom+chainTo)/2,PROD_SUD_FRAME_T,chainTo-chainFrom,sudTurnChainFrameMat);
+      addChainFramePart(railX1,(chainFrom+chainTo)/2,PROD_SUD_FRAME_T,chainTo-chainFrom,sudTurnChainFrameMat);
+      for(let z=chainFrom;z<=chainTo+0.01*FT;z+=8*FT){
+        addChainFramePart((railX0+railX1)/2,Math.min(z,chainTo),railX1-railX0,PROD_SUD_FRAME_T,sudTurnChainCrossMat);
+      }
+      const chainGeo=new THREE.BoxGeometry(4*IN,0.18*FT,chainTo-chainFrom);
+      for(const cx of [turnCx-PROD_SUD_TURN_TABLE_SIZE*0.25,turnCx+PROD_SUD_TURN_TABLE_SIZE*0.25]){
+        const chain=new THREE.Mesh(chainGeo,chainMat);
+        chain.position.set(cx,rollerBedY+0.18,(chainFrom+chainTo)/2);
+        chain.castShadow=true; chain.receiveShadow=true;
+        Gprod.add(chain);
+      }
+      const guardMat=new THREE.MeshStandardMaterial({color:0xffcc00,roughness:0.4,metalness:0.45});
+      const archMat=new THREE.MeshStandardMaterial({color:0x6d7277,roughness:0.45,metalness:0.35});
+      const archD=5*FT, archH=8*FT, archT=4*IN;
+      const addArchPart=(cx,cy,cz,w,h,d)=>{
+        const part=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),archMat);
+        part.position.set(cx,cy,cz);
+        part.castShadow=true; part.receiveShadow=true;
+        Gprod.add(part);
+      };
+      const addGuardRail=(gx0,gz0,gx1,gz1)=>{
+        const railH=4*FT, midRailH=2.15*FT, railT=3*IN;
+        const dx=gx1-gx0, dz=gz1-gz0;
+        const len=Math.hypot(dx,dz);
+        const horiz=Math.abs(dx)>=Math.abs(dz);
+        const addRail=(y)=>{
+          const rail=new THREE.Mesh(
+            new THREE.BoxGeometry(horiz?len:railT,railT,horiz?railT:len),
+            guardMat
+          );
+          rail.position.set((gx0+gx1)/2,y,(gz0+gz1)/2);
+          rail.castShadow=true; rail.receiveShadow=true;
+          Gprod.add(rail);
+        };
+        addRail(railH);
+        addRail(midRailH);
+        const postCount=Math.max(1,Math.ceil(len/(6*FT)));
+        for(let p=0;p<=postCount;p++){
+          const t=p/postCount;
+          const post=new THREE.Mesh(new THREE.BoxGeometry(railT,railH,railT),guardMat);
+          post.position.set(gx0+dx*t,railH/2,gz0+dz*t);
+          post.castShadow=true; post.receiveShadow=true;
+          Gprod.add(post);
+        }
+      };
+      const guardZ0=z1+8*FT, guardZ1=guardZ0+6*FT;
+      const guardWest=railX0-8*FT;
+      const guardColumnX=COL_X0+Math.round(((guardWest+railX0)/2-COL_X0)/COL_STEP)*COL_STEP;
+      const guardColumnZ=BIN_N+576*IN+8*COL_NS_STEP;
+      const northRailX0=(x0+x1)/2;
+      const northRailX1=COL_X0+(Math.ceil((northRailX0-COL_X0)/COL_STEP)+1)*COL_STEP;
+      const northRailZ=z0-6*IN;
+      const westTurnSize=60*IN;
+      const line12X0=PROD_LINE_X[11]-PROD_STAGE_W/2;
+      const line12Z0=northRailZ+6*IN;
+      const westTurnX0=line12X0, westTurnX1=line12X0+westTurnSize;
+      const westTurnZ0=line12Z0, westTurnZ1=line12Z0+westTurnSize;
+      const westTurnCx=(westTurnX0+westTurnX1)/2, westTurnCz=(westTurnZ0+westTurnZ1)/2;
+      const westBase=new THREE.Mesh(new THREE.CylinderGeometry(PROD_SUD_TURN_TABLE_R,PROD_SUD_TURN_TABLE_R,0.18*FT,48),sudTurnFrameMat);
+      westBase.position.set(westTurnCx,0.09*FT,westTurnCz);
+      westBase.castShadow=true; westBase.receiveShadow=true;
+      Gprod.add(westBase);
+      const westTable=new THREE.Mesh(new THREE.BoxGeometry(westTurnSize,0.22*FT,westTurnSize),tableMat);
+      westTable.position.set(westTurnCx,rollerBedY+0.05*FT,westTurnCz);
+      westTable.castShadow=true; westTable.receiveShadow=true;
+      Gprod.add(westTable);
+      const westRollerGeo=new THREE.CylinderGeometry(0.12*FT,0.12*FT,westTurnSize-0.7*FT,12);
+      westRollerGeo.rotateZ(Math.PI/2);
+      const westRollerPos=[];
+      for(let rz=westTurnZ0+0.55*FT;rz<westTurnZ1;rz+=0.55*FT){
+        westRollerPos.push([westTurnCx,rollerBedY+0.28*FT,rz]);
+      }
+      const westInst=new THREE.InstancedMesh(westRollerGeo,rollerMat,westRollerPos.length);
+      const westM4=new THREE.Matrix4();
+      westRollerPos.forEach(([rx,ry,rz],idx)=>westInst.setMatrixAt(idx,westM4.makeTranslation(rx,ry,rz)));
+      westInst.instanceMatrix.needsUpdate=true;
+      westInst.castShadow=true; westInst.receiveShadow=true;
+      Gprod.add(westInst);
+      const transferX0=westTurnX1, transferX1=northRailX1+10*FT;
+      const transferW=transferX1-transferX0;
+      const transferDeck=new THREE.Mesh(new THREE.BoxGeometry(transferW,0.16*FT,westTurnSize),tableMat);
+      transferDeck.position.set((transferX0+transferX1)/2,rollerBedY+0.16*FT,westTurnCz);
+      transferDeck.castShadow=true; transferDeck.receiveShadow=true;
+      Gprod.add(transferDeck);
+      const transferRollerGeo=new THREE.CylinderGeometry(0.12*FT,0.12*FT,westTurnSize-0.7*FT,12);
+      transferRollerGeo.rotateX(Math.PI/2);
+      const transferRollerPos=[];
+      for(let rx=transferX0+PROD_ROLLER_SPACING;rx<transferX1;rx+=PROD_ROLLER_SPACING){
+        transferRollerPos.push([rx,rollerBedY+0.34*FT,westTurnCz]);
+      }
+      const transferInst=new THREE.InstancedMesh(transferRollerGeo,rollerMat,transferRollerPos.length);
+      const transferM4=new THREE.Matrix4();
+      transferRollerPos.forEach(([rx,ry,rz],idx)=>transferInst.setMatrixAt(idx,transferM4.makeTranslation(rx,ry,rz)));
+      transferInst.instanceMatrix.needsUpdate=true;
+      transferInst.castShadow=true; transferInst.receiveShadow=true;
+      Gprod.add(transferInst);
+      const line12ChainFrom=westTurnCz+PROD_SUD_TURN_TABLE_R;
+      const line12ChainTo=line12ChainFrom+PROD_SUD_TURN_CHAIN_LENGTH;
+      const line12RailX0=westTurnX0, line12RailX1=westTurnX1;
+      addChainFramePart(line12RailX0,(line12ChainFrom+line12ChainTo)/2,PROD_SUD_FRAME_T,line12ChainTo-line12ChainFrom,sudTurnChainFrameMat);
+      addChainFramePart(line12RailX1,(line12ChainFrom+line12ChainTo)/2,PROD_SUD_FRAME_T,line12ChainTo-line12ChainFrom,sudTurnChainFrameMat);
+      for(let z=line12ChainFrom;z<=line12ChainTo+0.01*FT;z+=8*FT){
+        addChainFramePart((line12RailX0+line12RailX1)/2,Math.min(z,line12ChainTo),line12RailX1-line12RailX0,PROD_SUD_FRAME_T,sudTurnChainCrossMat);
+      }
+      const line12ChainGeo=new THREE.BoxGeometry(4*IN,0.18*FT,line12ChainTo-line12ChainFrom);
+      for(const cx of [westTurnCx-westTurnSize*0.25,westTurnCx+westTurnSize*0.25]){
+        const chain=new THREE.Mesh(line12ChainGeo,chainMat);
+        chain.position.set(cx,rollerBedY+0.18,(line12ChainFrom+line12ChainTo)/2);
+        chain.castShadow=true; chain.receiveShadow=true;
+        Gprod.add(chain);
+      }
+      const line12GuardZ0=westTurnZ1+8*FT, line12GuardZ1=line12GuardZ0+6*FT;
+      const line12GuardEast=line12RailX1+8*FT;
+      const line12GuardColumnX=COL_X0+Math.round(((line12RailX1+line12GuardEast)/2-COL_X0)/COL_STEP)*COL_STEP;
+      addGuardRail(line12RailX1,line12GuardZ0,line12GuardEast,line12GuardZ0);
+      addGuardRail(line12GuardEast,line12GuardZ0,line12GuardEast,line12GuardZ1);
+      addGuardRail(line12GuardEast,line12GuardZ1,line12RailX1,line12GuardZ1);
+      addGuardRail(line12GuardColumnX,guardColumnZ,line12GuardColumnX,line12GuardZ1);
+      const line12RollX=line12GuardEast-2.5*FT, line12RollZ=(line12GuardZ0+line12GuardZ1)/2;
+      const line12Roll=new THREE.Mesh(new THREE.TorusGeometry(1.25*FT,0.22*FT,16,48),strapRollMat);
+      line12Roll.position.set(line12RollX,2.4*FT,line12RollZ);
+      line12Roll.rotation.y=Math.PI/2;
+      line12Roll.castShadow=true; line12Roll.receiveShadow=true;
+      Gprod.add(line12Roll);
+      const line12StrapTail=new THREE.Mesh(new THREE.BoxGeometry(2.2*FT,1.5*IN,1.5*IN),strapMat);
+      line12StrapTail.position.set(line12RollX-1.3*FT,2.4*FT,line12RollZ);
+      line12StrapTail.castShadow=true; line12StrapTail.receiveShadow=true;
+      Gprod.add(line12StrapTail);
+      const line12ArchZ=(line12GuardZ0+line12GuardZ1)/2;
+      const line12ArchW=line12RailX1-line12RailX0+1.5*FT;
+      for(const ax of [line12RailX0-0.75*FT,line12RailX1+0.75*FT]){
+        for(const az of [line12ArchZ-archD/2,line12ArchZ+archD/2]){
+          addArchPart(ax,archH/2,az,archT,archH,archT);
+        }
+      }
+      for(const az of [line12ArchZ-archD/2,line12ArchZ+archD/2]){
+        addArchPart((line12RailX0+line12RailX1)/2,archH,az,line12ArchW,archT,archT);
+      }
+      for(const ax of [line12RailX0-0.75*FT,line12RailX1+0.75*FT]){
+        addArchPart(ax,archH,line12ArchZ,archT,archT,archD);
+      }
+      addGuardRail(northRailX0,northRailZ,northRailX1,northRailZ);
+      addGuardRail(railX0,guardZ0,guardWest,guardZ0);
+      addGuardRail(guardWest,guardZ0,guardWest,guardZ1);
+      addGuardRail(guardWest,guardZ1,railX0,guardZ1);
+      addGuardRail(guardColumnX,guardColumnZ,guardColumnX,guardZ1);
+      const rollX=guardWest+2.5*FT, rollZ=(guardZ0+guardZ1)/2;
+      const roll=new THREE.Mesh(new THREE.TorusGeometry(1.25*FT,0.22*FT,16,48),strapRollMat);
+      roll.position.set(rollX,2.4*FT,rollZ);
+      roll.rotation.y=Math.PI/2;
+      roll.castShadow=true; roll.receiveShadow=true;
+      Gprod.add(roll);
+      const strapTail=new THREE.Mesh(new THREE.BoxGeometry(2.2*FT,1.5*IN,1.5*IN),strapMat);
+      strapTail.position.set(rollX+1.3*FT,2.4*FT,rollZ);
+      strapTail.castShadow=true; strapTail.receiveShadow=true;
+      Gprod.add(strapTail);
+      const archZ=(guardZ0+guardZ1)/2;
+      const archW=railX1-railX0+1.5*FT;
+      for(const ax of [railX0-0.75*FT,railX1+0.75*FT]){
+        for(const az of [archZ-archD/2,archZ+archD/2]){
+          addArchPart(ax,archH/2,az,archT,archH,archT);
+        }
+      }
+      for(const az of [archZ-archD/2,archZ+archD/2]){
+        addArchPart((railX0+railX1)/2,archH,az,archW,archT,archT);
+      }
+      for(const ax of [railX0-0.75*FT,railX1+0.75*FT]){
+        addArchPart(ax,archH,archZ,archT,archT,archD);
+      }
+    }
     if(i<PROD_ROLLER_BED_COUNT){
       const w=new THREE.Mesh(wrapGeo,wrapMat);
       w.position.set(lx,16*FT,PROD_Z1+PROD_WRAP_OFFSET);
@@ -7286,6 +7771,14 @@ const Grack2A=new THREE.Group(); scene.add(Grack2A);
     const inst=new THREE.InstancedMesh(sudRollerGeo,rollerMat,sudRollerPos.length);
     const m4=new THREE.Matrix4();
     sudRollerPos.forEach(([x,y,z],i)=>inst.setMatrixAt(i,m4.makeTranslation(x,y,z)));
+    inst.instanceMatrix.needsUpdate=true;
+    inst.castShadow=true; inst.receiveShadow=true;
+    Gprod.add(inst);
+  }
+  {
+    const inst=new THREE.InstancedMesh(sudTurnRollerGeo,rollerMat,sudTurnRollerPos.length);
+    const m4=new THREE.Matrix4();
+    sudTurnRollerPos.forEach(([x,y,z],i)=>inst.setMatrixAt(i,m4.makeTranslation(x,y,z)));
     inst.instanceMatrix.needsUpdate=true;
     inst.castShadow=true; inst.receiveShadow=true;
     Gprod.add(inst);
@@ -8111,32 +8604,6 @@ const Ggrid=new THREE.Group(); scene.add(Ggrid);
     new THREE.LineBasicMaterial({color:0xaaaaaa,transparent:true,opacity:0.3})
   ));
 }
-
-// ── LABELS ─────────────────────────────────────────────────────────────────
-const Glabels=new THREE.Group(); scene.add(Glabels);
-const LABEL_BLUE='#1255a4';
-function sprite(text,color,fs,x,z){
-  const sw=512,sh=80;
-  const sc=document.createElement('canvas'); sc.width=sw; sc.height=sh;
-  const ctx=sc.getContext('2d');
-  ctx.clearRect(0,0,sw,sh);
-  ctx.font=`bold ${fs}px 'Segoe UI',sans-serif`;
-  ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(text,sw/2,sh/2);
-  const tex=new THREE.CanvasTexture(sc);
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false,sizeAttenuation:true}));
-  sp.scale.set(fs*sw/sh*0.25,fs*0.25,1);
-  sp.position.set(x,2,z);
-  Glabels.add(sp);
-}
-sprite('WH2',LABEL_BLUE,44,(R.WH2_L+WH23_DIV_X)/2,PD*0.75);
-sprite('WH3',LABEL_BLUE,44,(WH23_DIV_X+R.WH3_R)/2,PD*0.5);
-sprite('HR OFFICES',LABEL_BLUE,26,(HR_OFFICE.x0+HR_OFFICE.x1)/2,(HR_OFFICE.z0+HR_OFFICE.z1)/2);
-sprite("MATT'S OFFICE",LABEL_BLUE,13,(HR_OFFICE_RUN.small.x0+HR_OFFICE_RUN.small.x1)/2,(HR_OFFICE_RUN.small.z0+HR_OFFICE_RUN.small.z1)/2);
-sprite('SHIPPING OFFICE',LABEL_BLUE,16,(SHIP_OFFICE.x0+SHIP_OFFICE.x1)/2,SHIP_OFFICE.z0+8*FT);
-if(rawGoodsSection) sprite('RAW GOODS',LABEL_BLUE,30,(rawGoodsSection.x0+rawGoodsSection.x1)/2,(rawGoodsSection.z0+rawGoodsSection.z1)/2);
-if(rawGoodsOffice) sprite("IRA'S OFFICE",LABEL_BLUE,14,(rawGoodsOffice.x0+rawGoodsOffice.x1)/2,(rawGoodsOffice.z0+rawGoodsOffice.z1)/2);
-// Production line labels
 
 // ── DOUBLE-CLICK TO RECENTER ───────────────────────────────────────────────
 {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'plant076-single-version-v97';
+const CACHE_NAME = 'plant076-single-version-v98';
 const BASE_PATH = '/WH1_2_3_SIM/';
 const APP_SHELL = [
   BASE_PATH,

@@ -149,11 +149,13 @@ const NEW_HIRE_PRODUCT_CHARACTER={
   x:SHIP_OFFICE.hallX+6.5*FEET_TO_METERS,
   z:(SHIP_OFFICE.openZ0+SHIP_OFFICE.openZ1)/2,
   yaw:-Math.PI/2,
-  bodyColor:0x1255a4,
-  headGlassColor:0xa7e4f2,
-  label:'NEW HIRE',
-  product:'NEW PRODUCT'
+  bodyColor:0x7b2cbf,
+  hardHatColor:0x1255ff,
+  safetyVestColor:0xffea00,
+  label:'NEW HIRE'
 };
+let GnewHireProductCharacter=null;
+let newHireWalkRig=null;
 const FORKLIFT_PARKING_ZONES=[
   {x0:66*FEET_TO_METERS,x1:82*FEET_TO_METERS,z0:19*FEET_TO_METERS,z1:67*FEET_TO_METERS,stalls:12},
   {x0:46*FEET_TO_METERS,x1:62*FEET_TO_METERS,z0:51*FEET_TO_METERS,z1:67*FEET_TO_METERS,stalls:4},
@@ -431,6 +433,7 @@ scene.add(fillLight);
 
 
 const camera=new THREE.PerspectiveCamera(42,1,0.1,3000);
+scene.add(camera);
 const controls=new OrbitControls(camera,canvas);
 controls.enableDamping=true; controls.dampingFactor=0.07;
 controls.maxPolarAngle=Math.PI/2.01;
@@ -444,6 +447,36 @@ function setCameraClip(near,far){
   camera.far=far;
   camera.updateProjectionMatrix();
 }
+const firstPersonNewHireRig=(()=>{
+  const rig=new THREE.Group();
+  const bodyMat=new THREE.MeshStandardMaterial({color:NEW_HIRE_PRODUCT_CHARACTER.bodyColor,roughness:0.46,metalness:0.04});
+  const vestMat=new THREE.MeshStandardMaterial({color:NEW_HIRE_PRODUCT_CHARACTER.safetyVestColor,roughness:0.38,metalness:0.02});
+  const add=(mesh)=>{
+    mesh.castShadow=false; mesh.receiveShadow=false;
+    rig.add(mesh);
+    return mesh;
+  };
+  const limb=(x,y,z,rx,rz,len)=>{
+    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.045,len,12),bodyMat);
+    mesh.position.set(x,y,z);
+    mesh.rotation.set(rx,0,rz);
+    return add(mesh);
+  };
+  limb(-0.22,-0.34,-0.72,0.92,-0.28,0.45);
+  limb( 0.22,-0.34,-0.72,0.92, 0.28,0.45);
+  for(const sx of [-1,1]){
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(0.055,14,10),bodyMat);
+    hand.position.set(sx*0.29,-0.46,-0.96);
+    add(hand);
+  }
+  const vest=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.2,0.035),vestMat);
+  vest.position.set(0,-0.62,-0.78);
+  vest.rotation.x=0.18;
+  add(vest);
+  rig.visible=false;
+  camera.add(rig);
+  return rig;
+})();
 
 /*
 ╔══════════════════════════════════════════════════════════════╗
@@ -495,14 +528,14 @@ controls.addEventListener('change',invalidate);
 let camMode=1; // 1 = first person (cab), 2 = second person (facing the lift), 3 = third person (chase)
 // ── ON FOOT vs MOUNTED ──
 const FOOT_EYE=1.7, FOOT_SPEED=3.4, FOOT_SPRINT=8.5;
-const CAB_EYE_BACK=0.52; // m — driver's eye behind the lift origin: over the seat cushion (z 0.42), in front of the seat back (z 0.61)
+const CAB_EYE_BACK=0.34; // m — driver's eye behind the lift origin: over the moved-forward seat cushion
 let mounted=false;
 const liftState={pos:new THREE.Vector3(74*FEET_TO_METERS,0,33*FEET_TO_METERS),yaw:-Math.PI/2}; // parked in a west parking stall
 const MOUNT_RANGE=3.5;
 const SHIPPING_OFFICE_WALK_START={
-  x:SHIP_OFFICE.hallX+2.5*FEET_TO_METERS,
-  z:(SHIP_OFFICE.openZ0+SHIP_OFFICE.openZ1)/2,
-  yaw:Math.PI/2
+  x:NEW_HIRE_PRODUCT_CHARACTER.x,
+  z:NEW_HIRE_PRODUCT_CHARACTER.z,
+  yaw:NEW_HIRE_PRODUCT_CHARACTER.yaw
 };
 
 /*
@@ -520,15 +553,17 @@ Same result should mean same path.
 function setView(requestedView){
   if(requestedView&&requestedView.startsWith('walk')){
     // Named walk starts are first-person spawn points.
-    // walk2 / walk3 still act as camera-mode changes while mounted or already walking.
+    // walk2 / walk3 act as camera-mode changes; from orbit they start at the default walk spawn.
     const namedSpawn=(requestedView==='walk1'||requestedView==='walkMatt'||requestedView==='walkWh2Office');
+    const cameraModeRequest=(requestedView==='walk2'||requestedView==='walk3');
+    const enteringWalk=viewMode!=='walk';
     camMode=(requestedView==='walk2'||requestedView==='walk3')?(parseInt(requestedView.slice(4))||1):1;
-    if(viewMode!=='walk'){
+    if(enteringWalk){
       viewMode='walk';
       controls.enabled=false;
       camera.fov=75; setCameraClip(WALK_CAMERA_NEAR,WALK_CAMERA_FAR); camera.updateProjectionMatrix();
     }
-    if(viewMode==='walk'&&namedSpawn){
+    if(viewMode==='walk'&&(namedSpawn||(cameraModeRequest&&enteringWalk))){
       mounted=false;
       if(requestedView==='walkMatt'){
         // Matt's Office: third office from the south of the first HR office run.
@@ -540,7 +575,7 @@ function setView(requestedView){
         walk.pos.set(rawGoodsOffice.x1-3*FEET_TO_METERS, FOOT_EYE, (rawGoodsOffice.z0+rawGoodsOffice.z1)/2);
         walk.yaw=Math.PI/2; // facing west from the desk
       } else {
-        // Default 1st-person walk starts in the open shipping-office hallway.
+        // Default walk starts at the new-hire character in the shipping office.
         walk.pos.set(SHIPPING_OFFICE_WALK_START.x, FOOT_EYE, SHIPPING_OFFICE_WALK_START.z);
         walk.yaw=SHIPPING_OFFICE_WALK_START.yaw; // facing west inside shipping office
       }
@@ -552,8 +587,25 @@ function setView(requestedView){
     return;
   }
   if(document.pointerLockElement===canvas) document.exitPointerLock();
+  const leavingWalk=viewMode==='walk';
+  if(leavingWalk){
+    keys.clear();
+    if(mounted){
+      liftState.pos.set(walk.pos.x,0,walk.pos.z);
+      liftState.yaw=walk.yaw;
+      Gforklift.position.copy(liftState.pos);
+      Gforklift.rotation.set(0,liftState.yaw,0);
+    }
+    updateNewHireWorldPose();
+    Gforklift.visible=mounted;
+    mountArrow.visible=false;
+    document.getElementById('mountTip').style.display='none';
+    const overlay=document.getElementById('walkOverlay');
+    if(overlay) overlay.style.display='none';
+  }
   camera.fov=42; setCameraClip(ORBIT_CAMERA_NEAR,ORBIT_CAMERA_FAR); camera.updateProjectionMatrix();
   viewMode='orbit';
+  updateNewHireIdentityView();
   controls.enabled=true;
   const plantCenterX=WORLD_CX,plantCenterZ=WORLD_CZ;
   const orbitCameraPresets={
@@ -3460,60 +3512,69 @@ const Gwalls=new THREE.Group(); scene.add(Gwalls);
     {
       const c=NEW_HIRE_PRODUCT_CHARACTER;
       const figure=new THREE.Group();
+      figure.name='NewHireProductCharacter';
       figure.position.set(c.x,0,c.z);
       figure.rotation.y=c.yaw;
-      const blueMat=new THREE.MeshStandardMaterial({color:c.bodyColor,roughness:0.48,metalness:0.04});
-      const glassMat=new THREE.MeshStandardMaterial({color:c.headGlassColor,transparent:true,opacity:0.42,roughness:0.08,metalness:0.05,depthWrite:false});
-      const liquidMat=new THREE.MeshStandardMaterial({color:c.bodyColor,transparent:true,opacity:0.72,roughness:0.35,metalness:0.02});
-      const capMat=new THREE.MeshStandardMaterial({color:0x0b3f85,roughness:0.32,metalness:0.18});
-      const badgeMat=new THREE.MeshStandardMaterial({color:0xf5f5f0,roughness:0.55});
-      const addFigureMesh=(mesh)=>{
+      GnewHireProductCharacter=figure;
+      const bodyMat=new THREE.MeshStandardMaterial({color:c.bodyColor,roughness:0.5,metalness:0.02});
+      const hardHatMat=new THREE.MeshStandardMaterial({color:c.hardHatColor,roughness:0.34,metalness:0.08});
+      const vestMat=new THREE.MeshStandardMaterial({color:c.safetyVestColor,roughness:0.36,metalness:0.02});
+      const vestStripeMat=new THREE.MeshStandardMaterial({color:0xf7f7df,roughness:0.28,metalness:0.04});
+      const makeHardHatLabel=()=>{
+        const cv=document.createElement('canvas'); cv.width=256; cv.height=64;
+        const cx=cv.getContext('2d');
+        cx.clearRect(0,0,cv.width,cv.height);
+        cx.fillStyle='#ffffff';
+        cx.fillRect(8,8,240,48);
+        cx.strokeStyle='#083d8f'; cx.lineWidth=4; cx.strokeRect(8,8,240,48);
+        cx.fillStyle='#083d8f'; cx.font='900 30px Arial,sans-serif';
+        cx.textAlign='center'; cx.textBaseline='middle';
+        cx.fillText('plastipak',128,33);
+        const tex=new THREE.CanvasTexture(cv); tex.colorSpace=THREE.SRGBColorSpace;
+        return new THREE.Mesh(new THREE.PlaneGeometry(0.54*FEET_TO_METERS,0.14*FEET_TO_METERS),new THREE.MeshBasicMaterial({map:tex,transparent:true,side:THREE.DoubleSide}));
+      };
+      const rig={phase:0,parts:{}};
+      newHireWalkRig=rig;
+      const addPart=(mesh)=>{
         mesh.castShadow=false; mesh.receiveShadow=false;
         figure.add(mesh);
         return mesh;
       };
-      const limb=(a,b,r=0.09*FEET_TO_METERS)=>{
+      const poseCapsule=(mesh,a,b)=>{
         const mid=new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5);
         const dir=new THREE.Vector3().subVectors(b,a);
-        const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,dir.length(),12),blueMat);
         mesh.position.copy(mid);
+        mesh.scale.y=Math.max(0.01,dir.length());
         mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize());
-        return addFigureMesh(mesh);
       };
-      const v=(x,y,z)=>new THREE.Vector3(x*FEET_TO_METERS,y*FEET_TO_METERS,z*FEET_TO_METERS);
-      limb(v(0,1.95,0),v(0,3.65,0),0.12*FEET_TO_METERS);      // body
-      limb(v(0,3.35,0),v(-0.78,2.78,0.08),0.09*FEET_TO_METERS); // left arm
-      limb(v(0,3.35,0),v(0.78,2.78,0.08),0.09*FEET_TO_METERS);  // right arm
-      limb(v(0,1.95,0),v(-0.46,0.45,0.12),0.1*FEET_TO_METERS);  // left leg
-      limb(v(0,1.95,0),v(0.46,0.45,0.12),0.1*FEET_TO_METERS);   // right leg
-      for(const sx of [-0.82,0.82]){
-        const hand=new THREE.Mesh(new THREE.SphereGeometry(0.23*FEET_TO_METERS,16,12),blueMat);
-        hand.position.set(sx*FEET_TO_METERS,2.72*FEET_TO_METERS,0.1*FEET_TO_METERS);
-        hand.scale.set(1.18,0.82,0.95);
-        addFigureMesh(hand);
-      }
-      for(const sx of [-0.5,0.5]){
-        const foot=new THREE.Mesh(new THREE.BoxGeometry(0.52*FEET_TO_METERS,0.16*FEET_TO_METERS,0.34*FEET_TO_METERS),blueMat);
-        foot.position.set(sx*FEET_TO_METERS,0.12*FEET_TO_METERS,0.18*FEET_TO_METERS);
-        addFigureMesh(foot);
-      }
-      const headShell=new THREE.Mesh(new THREE.SphereGeometry(0.68*FEET_TO_METERS,32,18),glassMat);
-      headShell.position.set(0,4.68*FEET_TO_METERS,0);
-      addFigureMesh(headShell);
-      const headLiquid=new THREE.Mesh(new THREE.SphereGeometry(0.58*FEET_TO_METERS,24,12),liquidMat);
-      headLiquid.position.set(0,4.43*FEET_TO_METERS,0);
-      headLiquid.scale.set(1,0.56,1);
-      addFigureMesh(headLiquid);
-      const capTop=new THREE.Mesh(new THREE.CylinderGeometry(0.3*FEET_TO_METERS,0.38*FEET_TO_METERS,0.22*FEET_TO_METERS,24),capMat);
-      capTop.position.set(0,5.38*FEET_TO_METERS,0);
-      addFigureMesh(capTop);
-      const collar=new THREE.Mesh(new THREE.CylinderGeometry(0.42*FEET_TO_METERS,0.42*FEET_TO_METERS,0.16*FEET_TO_METERS,24),capMat);
-      collar.position.set(0,3.98*FEET_TO_METERS,0);
-      addFigureMesh(collar);
-      const badge=new THREE.Mesh(new THREE.BoxGeometry(0.72*FEET_TO_METERS,0.44*FEET_TO_METERS,0.05*FEET_TO_METERS),badgeMat);
-      badge.position.set(0,2.85*FEET_TO_METERS,-0.11*FEET_TO_METERS);
-      addFigureMesh(badge);
+      const capsule=(r,mat=bodyMat)=>{
+        const mesh=new THREE.Mesh(new THREE.CapsuleGeometry(r,1,4,10),mat);
+        return addPart(mesh);
+      };
+      rig.poseCapsule=poseCapsule;
+      rig.v=(x,y,z)=>new THREE.Vector3(x*FEET_TO_METERS,y*FEET_TO_METERS,z*FEET_TO_METERS);
+      rig.parts.body=capsule(0.08*FEET_TO_METERS);
+      rig.parts.leftArm=capsule(0.07*FEET_TO_METERS);
+      rig.parts.rightArm=capsule(0.07*FEET_TO_METERS);
+      rig.parts.leftUpperLeg=capsule(0.075*FEET_TO_METERS);
+      rig.parts.leftLowerLeg=capsule(0.068*FEET_TO_METERS);
+      rig.parts.rightUpperLeg=capsule(0.075*FEET_TO_METERS);
+      rig.parts.rightLowerLeg=capsule(0.068*FEET_TO_METERS);
+      rig.parts.leftHand=addPart(new THREE.Mesh(new THREE.SphereGeometry(0.105*FEET_TO_METERS,14,10),bodyMat));
+      rig.parts.rightHand=addPart(new THREE.Mesh(new THREE.SphereGeometry(0.105*FEET_TO_METERS,14,10),bodyMat));
+      rig.parts.leftFoot=addPart(new THREE.Mesh(new THREE.SphereGeometry(0.12*FEET_TO_METERS,14,8),bodyMat));
+      rig.parts.rightFoot=addPart(new THREE.Mesh(new THREE.SphereGeometry(0.12*FEET_TO_METERS,14,8),bodyMat));
+      rig.parts.head=addPart(new THREE.Mesh(new THREE.SphereGeometry(0.34*FEET_TO_METERS,24,16),bodyMat));
+      rig.parts.vest=addPart(new THREE.Mesh(new THREE.BoxGeometry(0.58*FEET_TO_METERS,0.76*FEET_TO_METERS,0.08*FEET_TO_METERS),vestMat));
+      rig.parts.vestLeftStripe=addPart(new THREE.Mesh(new THREE.BoxGeometry(0.08*FEET_TO_METERS,0.78*FEET_TO_METERS,0.092*FEET_TO_METERS),vestStripeMat));
+      rig.parts.vestRightStripe=addPart(new THREE.Mesh(new THREE.BoxGeometry(0.08*FEET_TO_METERS,0.78*FEET_TO_METERS,0.092*FEET_TO_METERS),vestStripeMat));
+      rig.parts.vestBelt=addPart(new THREE.Mesh(new THREE.BoxGeometry(0.62*FEET_TO_METERS,0.08*FEET_TO_METERS,0.096*FEET_TO_METERS),vestStripeMat));
+      rig.parts.hardHat=addPart(new THREE.Mesh(new THREE.SphereGeometry(0.36*FEET_TO_METERS,24,10,0,Math.PI*2,0,Math.PI/2),hardHatMat));
+      rig.parts.brim=addPart(new THREE.Mesh(new THREE.BoxGeometry(0.62*FEET_TO_METERS,0.06*FEET_TO_METERS,0.16*FEET_TO_METERS),hardHatMat));
+      rig.parts.leftHatLabel=addPart(makeHardHatLabel());
+      rig.parts.rightHatLabel=addPart(makeHardHatLabel());
       Gwalls.add(figure);
+      updateNewHireWalkPose(0,false);
     }
   }
   if(rawGoodsOffice){
@@ -4478,8 +4539,8 @@ function createCabTablet(){
   arm.position.set(0,0.10,-0.075);
   tabletGroup.add(body,screen,kbBase,keys,arm);
   tabletGroup.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
-  tabletGroup.position.set(0.32,1.60,0.115);   // right side, 1ft forward of the seat — same height
-  tabletGroup.rotation.set(0.32,-0.60,0);      // tilted down toward the driver's face
+  tabletGroup.position.set(0.37,1.64,-0.36);   // slightly inboard/lower on the driver's front-right guard upright
+  tabletGroup.rotation.set(0.30,-0.68,0.03);   // straighter, still angled toward the driver
   return tabletGroup;
 }
 
@@ -4536,42 +4597,44 @@ function createForklift(){
     forkliftGroup.add(mesh);
     return mesh;
   };
-  // Target: 1.06m wide body (41.7in), wheels at ±0.54m = 42.5in total
-  // 50in lane clear → 3.75in each side clearance — comfortable for drive-in
+  // Target: 44in outside tire width for 50in FIFO clear lanes; height stays Toyota-like.
+  // 50in lane clear -> about 3in each side clearance.
+  const liftBodyW=1.00, liftTrimW=1.02, liftWheelX=0.455, liftDriveWheelW=0.205, liftSteerWheelW=0.17;
+  const guardX=0.39, guardRoofW=0.84, mastOuterX=0.28, mastInnerX=0.20, carriageW=0.60, backrestW=0.66;
 
   // ── Chassis & operator floor ──
-  addForkliftMesh(new THREE.BoxGeometry(0.98,0.30,1.90),forkliftMaterials.body, 0,0.33, 0.28);   // frame rails
-  addForkliftMesh(new THREE.BoxGeometry(0.96,0.05,0.78),forkliftMaterials.trim, 0,0.50,-0.10);   // floor plate
+  addForkliftMesh(new THREE.BoxGeometry(0.88,0.30,1.90),forkliftMaterials.body, 0,0.33, 0.28);   // frame rails
+  addForkliftMesh(new THREE.BoxGeometry(0.84,0.05,0.78),forkliftMaterials.trim, 0,0.50,-0.10);   // floor plate
   addForkliftMesh(new THREE.BoxGeometry(0.30,0.05,0.16),forkliftMaterials.trim, 0,0.56,-0.38,-0.5); // pedals
   // ── Counterweight — boxy core + rounded tail + black skirt ──
-  addForkliftMesh(new THREE.BoxGeometry(1.00,0.86,0.74),forkliftMaterials.body, 0,0.57, 0.96);
-  const cwR=addForkliftMesh(new THREE.CylinderGeometry(0.50,0.50,0.86,24),forkliftMaterials.body, 0,0.57, 1.10);
+  addForkliftMesh(new THREE.BoxGeometry(liftBodyW,0.86,0.74),forkliftMaterials.body, 0,0.57, 0.96);
+  const cwR=addForkliftMesh(new THREE.CylinderGeometry(liftBodyW/2,liftBodyW/2,0.78,24),forkliftMaterials.body, 0,0.57, 1.10);
   cwR.scale.z=0.78;                                                  // plan-view curve
-  addForkliftMesh(new THREE.BoxGeometry(0.92,0.14,0.92),forkliftMaterials.body, 0,1.07, 0.98);   // cap step
-  addForkliftMesh(new THREE.BoxGeometry(1.02,0.18,0.82),forkliftMaterials.trim, 0,0.16, 0.98);   // skirt
+  addForkliftMesh(new THREE.BoxGeometry(0.84,0.14,0.92),forkliftMaterials.body, 0,1.07, 0.98);   // cap step
+  addForkliftMesh(new THREE.BoxGeometry(liftTrimW,0.18,0.82),forkliftMaterials.trim, 0,0.16, 0.98);   // skirt
   // ── Hood & dash cowl ──
-  addForkliftMesh(new THREE.BoxGeometry(0.90,0.34,0.80),forkliftMaterials.body, 0,0.67, 0.40);   // hood under seat
-  addForkliftMesh(new THREE.BoxGeometry(0.88,0.30,0.26),forkliftMaterials.body, 0,0.92,-0.34, 0.18); // raked cowl
-  addForkliftMesh(new THREE.BoxGeometry(0.84,0.05,0.20),forkliftMaterials.trim, 0,1.07,-0.37, 0.18); // dash pad
+  addForkliftMesh(new THREE.BoxGeometry(0.82,0.30,0.68),forkliftMaterials.body, 0,0.62, 0.46);   // hood/core lowered so seated legs stay visible
+  addForkliftMesh(new THREE.BoxGeometry(0.80,0.28,0.22),forkliftMaterials.body, 0,0.90,-0.30, 0.18); // raked cowl
+  addForkliftMesh(new THREE.BoxGeometry(0.76,0.05,0.18),forkliftMaterials.trim, 0,1.05,-0.33, 0.18); // dash pad
   // ── Fenders over the drive tires ──
   for(const sx of [-1,1]){
-    addForkliftMesh(new THREE.BoxGeometry(0.16,0.06,0.78),forkliftMaterials.body, sx*0.52,0.62,-0.28);
-    addForkliftMesh(new THREE.BoxGeometry(0.16,0.20,0.06),forkliftMaterials.body, sx*0.52,0.52,-0.64);
-    addForkliftMesh(new THREE.BoxGeometry(0.16,0.20,0.06),forkliftMaterials.body, sx*0.52,0.52, 0.08);
+    addForkliftMesh(new THREE.BoxGeometry(0.14,0.06,0.78),forkliftMaterials.body, sx*0.44,0.62,-0.28);
+    addForkliftMesh(new THREE.BoxGeometry(0.14,0.20,0.06),forkliftMaterials.body, sx*0.44,0.52,-0.64);
+    addForkliftMesh(new THREE.BoxGeometry(0.14,0.20,0.06),forkliftMaterials.body, sx*0.44,0.52, 0.08);
   }
   // ── Seat & controls ──
-  addForkliftMesh(new THREE.BoxGeometry(0.46,0.10,0.44),forkliftMaterials.seat, 0,0.89, 0.42);   // cushion
-  addForkliftMesh(new THREE.BoxGeometry(0.46,0.46,0.10),forkliftMaterials.seat, 0,1.16, 0.66,-0.12); // back
-  addForkliftMesh(new THREE.BoxGeometry(0.05,0.34,0.05),forkliftMaterials.trim,-0.18,0.94,-0.20, 0.45); // steer column
-  addForkliftMesh(new THREE.TorusGeometry(0.12,0.016,8,20),forkliftMaterials.trim,-0.18,1.12,-0.14,-1.10,0,0); // wheel faces the driver, caps the column
-  addForkliftMesh(new THREE.BoxGeometry(0.035,0.16,0.02),forkliftMaterials.trim, 0.16,1.12,-0.30, 0.30); // hyd levers
-  addForkliftMesh(new THREE.BoxGeometry(0.035,0.16,0.02),forkliftMaterials.trim, 0.23,1.12,-0.30, 0.38);
+  addForkliftMesh(new THREE.BoxGeometry(0.46,0.10,0.36),forkliftMaterials.seat, 0,0.79, 0.30);   // cushion behind the player's hips so legs hang over
+  addForkliftMesh(new THREE.BoxGeometry(0.46,0.46,0.10),forkliftMaterials.seat, 0,1.06, 0.52,-0.12); // back follows the moved/lowered cushion
+  addForkliftMesh(new THREE.BoxGeometry(0.05,0.34,0.05),forkliftMaterials.trim,0,0.94,-0.20, 0.45); // centered steer column
+  addForkliftMesh(new THREE.TorusGeometry(0.12,0.016,8,20),forkliftMaterials.trim,0,1.12,-0.14,-1.10,0,0); // centered wheel
+  addForkliftMesh(new THREE.BoxGeometry(0.035,0.16,0.02),forkliftMaterials.trim, 0.13,1.12,-0.30, 0.30); // hyd levers
+  addForkliftMesh(new THREE.BoxGeometry(0.035,0.16,0.02),forkliftMaterials.trim, 0.19,1.12,-0.30, 0.38);
   // ── Overhead guard — blue-grey cage: raked front legs, open slatted roof ──
   const rleg=new THREE.BoxGeometry(0.055,1.30,0.055);
-  addForkliftMesh(rleg,forkliftMaterials.guard,-0.44,1.46, 0.64); addForkliftMesh(rleg,forkliftMaterials.guard, 0.44,1.46, 0.64);
+  addForkliftMesh(rleg,forkliftMaterials.guard,-guardX,1.46, 0.64); addForkliftMesh(rleg,forkliftMaterials.guard, guardX,1.46, 0.64);
   const fleg=new THREE.BoxGeometry(0.055,1.16,0.055);
-  addForkliftMesh(fleg,forkliftMaterials.guard,-0.44,1.56,-0.41,-0.10); addForkliftMesh(fleg,forkliftMaterials.guard, 0.44,1.56,-0.41,-0.10);
-  const roofY=2.13, rw=0.94, rd=1.16, rzc=0.085, th=0.05;
+  addForkliftMesh(fleg,forkliftMaterials.guard,-guardX,1.56,-0.41,-0.10); addForkliftMesh(fleg,forkliftMaterials.guard, guardX,1.56,-0.41,-0.10);
+  const roofY=2.13, rw=guardRoofW, rd=1.16, rzc=0.085, th=0.05;
   addForkliftMesh(new THREE.BoxGeometry(rw,th,th),forkliftMaterials.guard, 0,roofY, rzc-rd/2);   // front rail
   addForkliftMesh(new THREE.BoxGeometry(rw,th,th),forkliftMaterials.guard, 0,roofY, rzc+rd/2);   // rear rail
   addForkliftMesh(new THREE.BoxGeometry(th,th,rd),forkliftMaterials.guard,-rw/2+th/2,roofY, rzc); // side rails
@@ -4581,28 +4644,28 @@ function createForklift(){
   // ── Work lights on the front legs ──
   const lamp=new THREE.MeshStandardMaterial({color:0xffeebb,emissive:0x665522,roughness:0.3});
   for(const sx of [-1,1]){
-    addForkliftMesh(new THREE.BoxGeometry(0.09,0.08,0.08),forkliftMaterials.trim, sx*0.44,1.96,-0.50);
+    addForkliftMesh(new THREE.BoxGeometry(0.09,0.08,0.08),forkliftMaterials.trim, sx*guardX,1.96,-0.50);
     const l=new THREE.Mesh(new THREE.CircleGeometry(0.030,12),lamp);
-    l.position.set(sx*0.44,1.96,-0.545); l.rotation.y=Math.PI; forkliftGroup.add(l);
+    l.position.set(sx*guardX,1.96,-0.545); l.rotation.y=Math.PI; forkliftGroup.add(l);
   }
   // ── Mast — two-stage: outer + inner channels, crossbars, lift + tilt cylinders ──
   const outCh=new THREE.BoxGeometry(0.09,1.86,0.12);
-  addForkliftMesh(outCh,forkliftMaterials.mast,-0.31,0.93,-0.72); addForkliftMesh(outCh,forkliftMaterials.mast, 0.31,0.93,-0.72);
+  addForkliftMesh(outCh,forkliftMaterials.mast,-mastOuterX,0.93,-0.72); addForkliftMesh(outCh,forkliftMaterials.mast, mastOuterX,0.93,-0.72);
   const inCh=new THREE.BoxGeometry(0.07,1.94,0.10);
-  addForkliftMesh(inCh,forkliftMaterials.mast,-0.22,0.99,-0.76); addForkliftMesh(inCh,forkliftMaterials.mast, 0.22,0.99,-0.76);
-  addForkliftMesh(new THREE.BoxGeometry(0.68,0.07,0.10),forkliftMaterials.mast, 0,0.24,-0.72);   // crossbars
-  addForkliftMesh(new THREE.BoxGeometry(0.68,0.07,0.10),forkliftMaterials.mast, 0,1.10,-0.72);
-  addForkliftMesh(new THREE.BoxGeometry(0.50,0.07,0.09),forkliftMaterials.mast, 0,1.88,-0.76);   // inner top tie
+  addForkliftMesh(inCh,forkliftMaterials.mast,-mastInnerX,0.99,-0.76); addForkliftMesh(inCh,forkliftMaterials.mast, mastInnerX,0.99,-0.76);
+  addForkliftMesh(new THREE.BoxGeometry(0.62,0.07,0.10),forkliftMaterials.mast, 0,0.24,-0.72);   // crossbars
+  addForkliftMesh(new THREE.BoxGeometry(0.62,0.07,0.10),forkliftMaterials.mast, 0,1.10,-0.72);
+  addForkliftMesh(new THREE.BoxGeometry(0.46,0.07,0.09),forkliftMaterials.mast, 0,1.88,-0.76);   // inner top tie
   for(const sx of [-1,1]){
     addForkliftMesh(new THREE.CylinderGeometry(0.035,0.035,0.95,10),forkliftMaterials.mast,  sx*0.13,0.70,-0.60); // cyl barrel
     addForkliftMesh(new THREE.CylinderGeometry(0.020,0.020,0.70,8),forkliftMaterials.cylRod, sx*0.13,1.45,-0.60); // bright rod
-    addForkliftMesh(new THREE.CylinderGeometry(0.028,0.028,0.46,8),forkliftMaterials.trim,   sx*0.42,0.50,-0.42, 1.30); // tilt cyl
+    addForkliftMesh(new THREE.CylinderGeometry(0.028,0.028,0.38,8),forkliftMaterials.trim,   sx*0.36,0.50,-0.42, 1.30); // tilt cyl
   }
   // ── Carriage + load backrest grid ──
-  addForkliftMesh(new THREE.BoxGeometry(0.66,0.50,0.06),forkliftMaterials.mast, 0,0.38,-0.84);   // carriage plate
-  addForkliftMesh(new THREE.BoxGeometry(0.74,0.06,0.05),forkliftMaterials.mast, 0,1.18,-0.86);   // backrest top rail
-  addForkliftMesh(new THREE.BoxGeometry(0.74,0.06,0.05),forkliftMaterials.mast, 0,0.70,-0.86);   // backrest mid rail
-  for(const bx of [-0.30,-0.10,0.10,0.30])
+  addForkliftMesh(new THREE.BoxGeometry(carriageW,0.50,0.06),forkliftMaterials.mast, 0,0.38,-0.84);   // carriage plate
+  addForkliftMesh(new THREE.BoxGeometry(backrestW,0.06,0.05),forkliftMaterials.mast, 0,1.18,-0.86);   // backrest top rail
+  addForkliftMesh(new THREE.BoxGeometry(backrestW,0.06,0.05),forkliftMaterials.mast, 0,0.70,-0.86);   // backrest mid rail
+  for(const bx of [-0.27,-0.09,0.09,0.27])
     addForkliftMesh(new THREE.BoxGeometry(0.05,0.66,0.04),forkliftMaterials.mast, bx,0.92,-0.86); // verticals
   // ── Forks — 42in blades, shank + heel ──
   for(const sx of [-1,1]){
@@ -4616,14 +4679,14 @@ function createForklift(){
   addForkliftMesh(new THREE.SphereGeometry(0.155,18,12),forkliftMaterials.tank, 0.37,1.30,1.02);
   addForkliftMesh(new THREE.BoxGeometry(0.05,0.34,0.36),forkliftMaterials.trim,-0.20,1.16,1.02); // cradle straps
   addForkliftMesh(new THREE.BoxGeometry(0.05,0.34,0.36),forkliftMaterials.trim, 0.20,1.16,1.02);
-  // ── Wheels — tire + rim + hub; drive ±0.54m, steer ±0.54m → 42.5in total ──
+  // ── Wheels — tire + rim + hub; outside width about 44in ──
   const mkWheel=(x,z,rT,rR,wT)=>{
     addForkliftMesh(new THREE.CylinderGeometry(rT,rT,wT,22),forkliftMaterials.tire,x,rT,z,0,0,Math.PI/2);
     addForkliftMesh(new THREE.CylinderGeometry(rR,rR,wT+0.012,16),forkliftMaterials.rim,x,rT,z,0,0,Math.PI/2);
     addForkliftMesh(new THREE.CylinderGeometry(rR*0.35,rR*0.35,wT+0.03,10),forkliftMaterials.trim,x,rT,z,0,0,Math.PI/2);
   };
-  mkWheel(-0.54,-0.28,0.285,0.185,0.24); mkWheel(0.54,-0.28,0.285,0.185,0.24); // drive
-  mkWheel(-0.54, 1.08,0.195,0.120,0.19); mkWheel(0.54, 1.08,0.195,0.120,0.19); // steer
+  mkWheel(-liftWheelX,-0.28,0.285,0.185,liftDriveWheelW); mkWheel(liftWheelX,-0.28,0.285,0.185,liftDriveWheelW); // drive
+  mkWheel(-liftWheelX, 1.08,0.195,0.120,liftSteerWheelW); mkWheel(liftWheelX, 1.08,0.195,0.120,liftSteerWheelW); // steer
   forkliftGroup.add(createCabTablet());
   return forkliftGroup;
 }
@@ -4682,6 +4745,11 @@ const vrPanel=(()=>{
 })();
 let vrMounted=false, vrCam3=false, vrFast=true;
 let vrPrevBtns={A:false,B:false,X:false,Y:false};
+function updateNewHireIdentityView(){
+  const inFirstPersonOnFoot=(renderer.xr.isPresenting&&!vrMounted)||(viewMode==='walk'&&!mounted&&camMode===1);
+  firstPersonNewHireRig.visible=inFirstPersonOnFoot;
+  if(GnewHireProductCharacter) GnewHireProductCharacter.visible=!(renderer.xr.isPresenting||inFirstPersonOnFoot);
+}
 renderer.xr.addEventListener('sessionstart',()=>{
   controls.enabled=false;
   // VR starts on foot in the office, same spawn as walk mode — A mounts when near the lift
@@ -4696,6 +4764,7 @@ renderer.xr.addEventListener('sessionstart',()=>{
   vrCamOffset.position.set(0,0,0);
   camera.position.set(0,0,0);
   camera.rotation.set(0,0,0);
+  updateNewHireIdentityView();
   Gforklift.visible=true;
   Gforklift.position.copy(liftState.pos); Gforklift.rotation.set(0,liftState.yaw,0);
   vrPanel.visible=false; // Y toggles it after the scene is stable
@@ -4712,6 +4781,7 @@ renderer.xr.addEventListener('sessionend',()=>{
   Gforklift.visible=false;
   mountArrow.visible=false;
   vrPanel.visible=false;
+  updateNewHireIdentityView();
   setCameraClip(ORBIT_CAMERA_NEAR,ORBIT_CAMERA_FAR);
   setView('top');
   renderer.shadowMap.needsUpdate=true; // re-bake static shadows without the forklift
@@ -4729,6 +4799,7 @@ function vrToggleMount(){
     player.position.set(liftState.pos.x,0,liftState.pos.z);
     player.rotation.y=liftState.yaw;
   }
+  updateNewHireIdentityView();
 }
 
 const _vrFwd=new THREE.Vector3();
@@ -4809,8 +4880,8 @@ It is a small state machine with four pieces that have to stay separate:
    Decides whether the player body is on foot or driving the forklift.
 
 3. camMode
-   Decides how the camera views the mounted state: cab, second-person,
-   or chase camera.
+   Decides how the camera views the player body: first-person,
+   second-person, or chase camera.
 
 4. pointer lock
    Decides whether mouse movement is being captured by the canvas.
@@ -4838,8 +4909,96 @@ const walkForward=new THREE.Vector3();
 const walkRight=new THREE.Vector3();
 const walkMove=new THREE.Vector3();
 
+function updateNewHireWalkPose(dt,isMoving){
+  if(!newHireWalkRig||mounted) return;
+  const r=newHireWalkRig, p=r.parts, v=r.v;
+  const gaitSpeed=isMoving?4.8:3.2;
+  r.phase+=dt*gaitSpeed;
+  const stride=isMoving?Math.sin(r.phase):0;
+  const counter=-stride;
+  const liftL=Math.max(0,counter), liftR=Math.max(0,stride);
+  const bob=isMoving?Math.abs(Math.sin(r.phase))*0.045:0;
+  const lean=isMoving?-0.045:0;
+  const shoulderY=3.32+bob, hipY=1.9+bob*0.25, headY=4.08+bob;
+  const lKnee=v(-0.25,1.16+liftL*0.18,0.06+counter*0.26);
+  const rKnee=v(0.25,1.16+liftR*0.18,0.06+stride*0.26);
+  const lFoot=v(-0.38,0.18,0.08+counter*0.42);
+  const rFoot=v(0.38,0.18,0.08+stride*0.42);
+  r.poseCapsule(p.body,v(lean,hipY,0),v(lean*1.6,shoulderY,0));
+  r.poseCapsule(p.leftArm,v(-0.05,3.12+bob,0),v(-0.52,2.42+bob,0.05+stride*0.34));
+  r.poseCapsule(p.rightArm,v(0.05,3.12+bob,0),v(0.52,2.42+bob,0.05+counter*0.34));
+  r.poseCapsule(p.leftUpperLeg,v(0,hipY,0),lKnee);
+  r.poseCapsule(p.leftLowerLeg,lKnee,lFoot);
+  r.poseCapsule(p.rightUpperLeg,v(0,hipY,0),rKnee);
+  r.poseCapsule(p.rightLowerLeg,rKnee,rFoot);
+  p.leftHand.position.set(-0.52*FEET_TO_METERS,(2.42+bob)*FEET_TO_METERS,(0.05+stride*0.34)*FEET_TO_METERS);
+  p.rightHand.position.set(0.52*FEET_TO_METERS,(2.42+bob)*FEET_TO_METERS,(0.05+counter*0.34)*FEET_TO_METERS);
+  p.leftFoot.position.copy(lFoot);
+  p.rightFoot.position.copy(rFoot);
+  p.head.position.set(lean*1.8*FEET_TO_METERS,headY*FEET_TO_METERS,0);
+  p.vest.position.set(lean*1.2*FEET_TO_METERS,(2.68+bob*0.5)*FEET_TO_METERS,-0.02*FEET_TO_METERS);
+  p.vestLeftStripe.position.set((lean*1.2-0.14)*FEET_TO_METERS,(2.68+bob*0.5)*FEET_TO_METERS,-0.07*FEET_TO_METERS);
+  p.vestRightStripe.position.set((lean*1.2+0.14)*FEET_TO_METERS,(2.68+bob*0.5)*FEET_TO_METERS,-0.07*FEET_TO_METERS);
+  p.vestBelt.position.set(lean*1.2*FEET_TO_METERS,(2.48+bob*0.5)*FEET_TO_METERS,-0.075*FEET_TO_METERS);
+  p.hardHat.position.set(lean*1.8*FEET_TO_METERS,(4.29+bob)*FEET_TO_METERS,0);
+  p.brim.position.set(lean*1.8*FEET_TO_METERS,(4.27+bob)*FEET_TO_METERS,-0.28*FEET_TO_METERS);
+  p.leftHatLabel.position.set((lean*1.8-0.31)*FEET_TO_METERS,(4.27+bob)*FEET_TO_METERS,0);
+  p.rightHatLabel.position.set((lean*1.8+0.31)*FEET_TO_METERS,(4.27+bob)*FEET_TO_METERS,0);
+  p.leftHatLabel.rotation.set(0,-Math.PI/2,0);
+  p.rightHatLabel.rotation.set(0,Math.PI/2,0);
+}
+
+function updateNewHireSeatedPose(){
+  if(!newHireWalkRig) return;
+  const r=newHireWalkRig, p=r.parts, v=r.v;
+  const hipY=1.02, shoulderY=2.18, headY=2.88;
+  const leftKnee=v(-0.26,0.54,-0.55), rightKnee=v(0.26,0.54,-0.55);
+  const leftFoot=v(-0.32,0.12,-0.98), rightFoot=v(0.32,0.12,-0.98);
+  r.poseCapsule(p.body,v(0,hipY,0.08),v(0,shoulderY,0.04));
+  r.poseCapsule(p.leftArm,v(-0.08,2.22,0.02),v(-0.28,1.43,-0.34));
+  r.poseCapsule(p.rightArm,v(0.08,2.22,0.02),v(0.28,1.43,-0.34));
+  r.poseCapsule(p.leftUpperLeg,v(0,hipY,0.03),leftKnee);
+  r.poseCapsule(p.leftLowerLeg,leftKnee,leftFoot);
+  r.poseCapsule(p.rightUpperLeg,v(0,hipY,0.03),rightKnee);
+  r.poseCapsule(p.rightLowerLeg,rightKnee,rightFoot);
+  p.leftHand.position.set(-0.28*FEET_TO_METERS,1.43*FEET_TO_METERS,-0.34*FEET_TO_METERS);
+  p.rightHand.position.set(0.28*FEET_TO_METERS,1.43*FEET_TO_METERS,-0.34*FEET_TO_METERS);
+  p.leftFoot.position.copy(leftFoot);
+  p.rightFoot.position.copy(rightFoot);
+  p.head.position.set(0,headY*FEET_TO_METERS,0);
+  p.vest.position.set(0,1.65*FEET_TO_METERS,0.02*FEET_TO_METERS);
+  p.vestLeftStripe.position.set(-0.14*FEET_TO_METERS,1.65*FEET_TO_METERS,-0.03*FEET_TO_METERS);
+  p.vestRightStripe.position.set(0.14*FEET_TO_METERS,1.65*FEET_TO_METERS,-0.03*FEET_TO_METERS);
+  p.vestBelt.position.set(0,1.48*FEET_TO_METERS,-0.035*FEET_TO_METERS);
+  p.hardHat.position.set(0,3.08*FEET_TO_METERS,0);
+  p.brim.position.set(0,3.06*FEET_TO_METERS,-0.28*FEET_TO_METERS);
+  p.leftHatLabel.position.set(-0.31*FEET_TO_METERS,3.06*FEET_TO_METERS,0);
+  p.rightHatLabel.position.set(0.31*FEET_TO_METERS,3.06*FEET_TO_METERS,0);
+  p.leftHatLabel.rotation.set(0,-Math.PI/2,0);
+  p.rightHatLabel.rotation.set(0,Math.PI/2,0);
+}
+
+function updateNewHireWorldPose(){
+  if(!GnewHireProductCharacter) return;
+  if(mounted){
+    updateNewHireSeatedPose();
+    const seatLocalX=0, seatLocalZ=0.22, yaw=walk.yaw;
+    const seatX=walk.pos.x+Math.cos(yaw)*seatLocalX+Math.sin(yaw)*seatLocalZ;
+    const seatZ=walk.pos.z-Math.sin(yaw)*seatLocalX+Math.cos(yaw)*seatLocalZ;
+    GnewHireProductCharacter.position.set(seatX,0.58,seatZ);
+    GnewHireProductCharacter.rotation.set(0,walk.yaw,0);
+    GnewHireProductCharacter.scale.setScalar(1);
+  } else {
+    GnewHireProductCharacter.position.set(walk.pos.x,0,walk.pos.z);
+    GnewHireProductCharacter.rotation.set(0,walk.yaw,0);
+    GnewHireProductCharacter.scale.setScalar(1);
+  }
+}
+
 function updateWalkCamera(){
-  if(camMode===1||!mounted){ // cab view / on foot is always first person
+  updateNewHireIdentityView();
+  updateNewHireWorldPose();
+  if(camMode===1){ // first person on foot, or cab view while mounted
     camera.position.copy(walk.pos);
     if(mounted){ // seat is behind the lift origin -- pull the eye back off the steering wheel
       camera.position.x+=Math.sin(walk.yaw)*CAB_EYE_BACK;
@@ -4850,19 +5009,30 @@ function updateWalkCamera(){
   }
   const fx=-Math.sin(walk.yaw), fz=-Math.cos(walk.yaw);
   if(camMode===3){ // chase cam — behind and above, pitch raises/lowers it
-    const h=1.7+walk.pitch*2.5;
-    camera.position.set(walk.pos.x-fx*7,Math.max(0.4,walk.pos.y+h),walk.pos.z-fz*7);
+    const dist=mounted?7:3.2;
+    const h=(mounted?1.7:0.75)+walk.pitch*(mounted?2.5:1.2);
+    camera.position.set(walk.pos.x-fx*dist,Math.max(0.4,walk.pos.y+h),walk.pos.z-fz*dist);
   } else {         // 2nd person — out front, looking back at the lift
-    camera.position.set(walk.pos.x+fx*7,walk.pos.y+0.9,walk.pos.z+fz*7);
+    const dist=mounted?7:3.0;
+    camera.position.set(walk.pos.x+fx*dist,walk.pos.y+0.9,walk.pos.z+fz*dist);
   }
-  camera.lookAt(walk.pos.x,walk.pos.y-0.2,walk.pos.z);
+  camera.lookAt(walk.pos.x,walk.pos.y-(mounted?0.2:0.55),walk.pos.z);
 }
 function endWalkMode(){
   if(document.pointerLockElement===canvas) document.exitPointerLock();
   keys.clear();
-  Gforklift.visible=false;
+  if(mounted){
+    liftState.pos.set(walk.pos.x,0,walk.pos.z);
+    liftState.yaw=walk.yaw;
+    Gforklift.position.copy(liftState.pos);
+    Gforklift.rotation.set(0,liftState.yaw,0);
+  }
+  updateNewHireWorldPose();
+  Gforklift.visible=mounted;
   mountArrow.visible=false;
   document.getElementById('mountTip').style.display='none';
+  const overlay=document.getElementById('walkOverlay');
+  if(overlay) overlay.style.display='none';
   camera.fov=42; camera.updateProjectionMatrix();
   document.getElementById('vsel').value='top';
   setView('top');
@@ -4876,6 +5046,8 @@ function toggleMount(){
   if(viewMode!=='walk') return;
   if(mounted){
     // step off to the left of the lift; it stays parked here
+    liftState.pos.set(walk.pos.x,0,walk.pos.z);
+    liftState.yaw=walk.yaw;
     mounted=false;
     const rx=Math.cos(walk.yaw), rz=-Math.sin(walk.yaw);
     walk.pos.set(liftState.pos.x-rx*1.8, FOOT_EYE, liftState.pos.z-rz*1.8);
@@ -4885,6 +5057,8 @@ function toggleMount(){
     walk.pos.set(liftState.pos.x, 5.0*FEET_TO_METERS, liftState.pos.z);
     walk.yaw=liftState.yaw;
   }
+  updateNewHireWorldPose();
+  updateNewHireIdentityView();
   document.getElementById('mountTip').style.display='none';
   invalidate();
 }
@@ -4918,6 +5092,7 @@ function updateWalk(dt){
   walkMove.set(0,0,0)
     .addScaledVector(walkForward,forwardInput)
     .addScaledVector(walkRight,rightInput);
+  const isWalking=walkMove.lengthSq()>0&&!mounted;
   if(walkMove.lengthSq()>0){
     const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight');
     const spd=mounted?(sprint?walk.fastSpeed:walk.speed):(sprint?FOOT_SPRINT:FOOT_SPEED);
@@ -4932,6 +5107,7 @@ function updateWalk(dt){
     walk.pos.x=THREE.MathUtils.clamp(walk.pos.x,walkMinX,walkMaxX);
     walk.pos.z=THREE.MathUtils.clamp(walk.pos.z,walkMinZ,walkMaxZ);
   }
+  updateNewHireWalkPose(dt,isWalking);
   updateWalkCamera();
   Gforklift.visible=true;
   if(mounted){ // lift follows the driver
@@ -4986,9 +5162,11 @@ window.addEventListener('keydown',e=>{
   if(viewMode==='walk'&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
   if(e.code==='Escape'&&viewMode==='walk') endWalkMode();
   else if(e.code==='KeyE'&&viewMode==='walk') toggleMount();
-  else if(e.code==='KeyC'&&viewMode==='walk'&&mounted){ // cycle 1st → 2nd → 3rd
+  else if(e.code==='KeyC'&&viewMode==='walk'){ // cycle 1st -> 2nd -> 3rd
     camMode=camMode%3+1;
     document.getElementById('vsel').value='walk'+camMode;
+    updateWalkCamera();
+    invalidate();
   }
   else keys.add(e.code);
 });
@@ -4996,7 +5174,7 @@ window.addEventListener('keyup',e=>keys.delete(e.code));
 document.addEventListener('pointerlockchange',()=>{
   const locked=document.pointerLockElement===canvas;
   const overlay=document.getElementById('walkOverlay');
-  if(overlay) overlay.style.display=(viewMode==='walk'&&!locked)?'flex':'none';
+  if(overlay) overlay.style.display='none';
   if(viewMode==='walk'&&!locked) keys.clear();
 });
 canvas.addEventListener('click',()=>{
@@ -5127,6 +5305,6 @@ document.addEventListener('webkitfullscreenchange',()=>{resize(); invalidate();}
 (function(){
   const bm=document.getElementById('btnMount'), bc=document.getElementById('btnCam');
   if(bm) bm.addEventListener('click',()=>{ if(viewMode==='walk') toggleMount(); });
-  if(bc) bc.addEventListener('click',()=>{ if(viewMode==='walk'&&mounted){ camMode=camMode%3+1; const v=document.getElementById('vsel'); if(v) v.value='walk'+camMode; } });
+  if(bc) bc.addEventListener('click',()=>{ if(viewMode==='walk'){ camMode=camMode%3+1; const v=document.getElementById('vsel'); if(v) v.value='walk'+camMode; updateWalkCamera(); invalidate(); } });
   if(IS_MOBILE){ setView('walk1'); }
 })();
